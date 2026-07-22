@@ -1,0 +1,42 @@
+\setcounter{chapter}{11} 
+\chapter*{Chapter (11): Conclusion}
+\addcontentsline{toc}{chapter}{Chapter (11): Conclusion} 
+\setcounter{section}{0}
+
+% ============================================================
+\section{Chapter Preview}
+This chapter synthesizes the outcomes and contributions of the Sanad project. It highlights the achievements in autonomous navigation, multi-modal interfaces, home/social integration, caregiver remote diagnostics, and details a future development roadmap for the platform.
+
+\section{Conclusion}
+% ============================================================
+
+In this graduation project, we designed, developed, and validated \textbf{Sanad}, a fully integrated, autonomous, and multi-modal assistive wheelchair platform. The project successfully addresses a critical gap in assistive technology: the exclusion of individuals with severe physical and cognitive motor impairments (such as quadriplegia, advanced ALS, and visual impairments) from standard manual-control powered wheelchairs.
+
+The technical contributions and findings of the project can be summarized as follows:
+\begin{enumerate}
+    \item \textbf{Autonomous Navigation:} By transitioning from manual, open-loop control to an autonomous, closed-loop robotic stack using ROS 2, Sanad allows users to navigate indoor environments safely through high-level goals. The system successfully fuses wheel odometry, IMU data, and dual LiDAR scans (providing a full 360-degree obstacle field of view) to localise and plan trajectories with centimeter-level precision.
+    \item \textbf{Multi-Modal Accessibility:} Sanad accommodates diverse disability profiles by offering multiple control channels. Voice command parsing utilizing large language models allows natural-language conversational interaction in Egyptian Arabic. For non-verbal or locked-in patients, eye-tracking cursor navigation provides hands-free operation of the system kiosk. The IMU head-gestures module offers intuitive manual adjustment within room interiors.
+    \item \textbf{Environmental and Social Integration:} By embedding smart-home control and Telegram messaging directly into the wheelchair platform, the user's independence is expanded beyond locomotion. The system empowers users to control environmental appliances and interact with remote caregivers independently.
+    \item \textbf{Caregiver Diagnostics:} The companion mobile application and backend server establish a robust monitoring network, streaming biometric vitals (BPM, $SpO_2$) and wheelchair telemetry to ensure user safety.
+\end{enumerate}
+
+Ultimately, Sanad demonstrates that advanced robotics and artificial intelligence can be combined with affordable consumer hardware to build a life-altering assistive device, restoring basic autonomy and dignity to individuals who would otherwise be confined to constant caregiver assistance.
+
+% ============================================================
+\section{Future Features \& Roadmap}
+% ============================================================
+
+While the current implementation of Sanad has met its core design requirements, several key areas have been identified for future research, development, and commercialization:
+
+\begin{itemize}
+    \item \textbf{Multimodal Local Large Language Models:} Currently, the conversational NLP pipeline relies on Google Cloud Vertex AI (Gemini), falling back to a simplified local model during internet outages. Future iterations will optimize lightweight local models (e.g., LLaMA-3-8B quantized) running entirely onboard the host computer via specialized hardware accelerators (like the Intel Arc GPU or NVIDIA Jetson platforms) to ensure offline conversational performance without latency.
+    \item \textbf{Advanced Vision-Language Model (VLM) Grounding:} Integrating real-time VLM spatial reasoning will allow users to navigate to unmapped or descriptive locations (e.g., saying ``take me to the red armchair'' or ``park next to the water dispenser''). The onboard camera feed can be analyzed dynamically by the VLM to resolve target coordinates.
+    \item \textbf{Brain-Computer Interface (BCI) Control:} For users in the most advanced stages of motor impairment (such as advanced locked-in syndrome), the system can integrate non-invasive EEG-based brain-computer interfaces. By analyzing neural signals (like motor imagery or P300 potentials), the BCI can allow the user to select navigation commands or trigger motion goals, sending commands directly to the core software orchestration and command arbitration layer.
+    \item \textbf{Augmented Reality (AR) Glasses Integration:} To improve accessibility and user experience, the physical touchscreen display can be replaced or augmented with lightweight AR glasses. This allows heads-up visualization of the user options. Furthermore, the system can project navigation data onto the user's field of view, displaying a real-time projection of the planned path, the distance to the goal, and the expected time of arrival (ETA).
+    \item \textbf{Assistive Robotic Arm Integration:} To address the complete lack of upper-limb function in quadriplegic users, the wheelchair chassis can be retrofitted with a lightweight robotic manipulator arm. This arm will automate daily activities requiring hand interaction, such as opening the refrigerator door, pushing elevator or doorbell buttons, and fetching light objects, executed via high-level voice or gaze-based commands.
+    \item \textbf{Active Suspension and Outdoor Trajectory Planning:} The current system is optimized for flat, indoor surfaces. Designing an active mechanical suspension and integrating 3D point cloud mapping (using depth cameras and 3D LiDAR) will enable the wheelchair to traverse uneven outdoor terrain, ramps, and pavements.
+    \item \textbf{Dynamic Social Navigation:} Incorporating social navigation planners will allow the wheelchair to predict human motion paths in crowded domestic or public spaces, adjusting its speed and trajectory according to social norms (e.g., maintaining a respectful distance and passing on the appropriate side).
+\end{itemize}
+
+\section{Closing Remarks}
+By demonstrating a viable end-to-end integration of SLAM navigation, LLM-based Egyptian Arabic voice routing, and eye-gaze tracking on affordable single-board computers, Sanad provides a blueprint for next-generation assistive devices. This prototype establishes that high-level autonomy and multi-modal accessibility can be unified to restore independence and dignity to users with severe motor impairments.

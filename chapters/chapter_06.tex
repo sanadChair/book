@@ -1,0 +1,359 @@
+\setcounter{chapter}{6}
+\chapter*{Chapter (6): SERVER ARCHITECTURE AND DESIGN}
+\addcontentsline{toc}{chapter}{Chapter (6): Server Architecture and Design}
+\setcounter{section}{0}
+
+
+\section{Chapter Preview}
+\label{sec:ch8_intro}
+This chapter presents the design and implementation of the central Node.js integration server. It details the server's role as a non-invasive, SCADA-like supervisory layer that translates client HTTP/WebSocket protocols, aggregates ROS bridge topics, and exposes modules for smart-home control and caregiver communications.
+
+\subsection{Problem Context}
+\label{sec:ch8_problem}
+
+The robotic platform developed in this study is predicated on the Robot Operating System (ROS), which inherently provides the necessary infrastructure for internal orchestration, encompassing node-to-node communication, topic publication and subscription, and service calls among the system's internal modules. While ROS is highly optimized for coordinating tightly coupled robotic processes, it is not inherently designed to interface directly with external heterogeneous clients. Such clients include end-user mobile applications, remote interaction interfaces (e.g., Telegram clients), and third-party smart-home peripherals utilizing standard network protocols rather than native ROS messages.
+
+Integrating HTTP communication directly into ROS nodes, or embedding web-server logic within them, would inadvertently couple the release cycles of user-facing features with the core robotics stack. Consequently, minor modifications to mobile-facing functionalities would necessitate concurrent testing and deployment of motion control, navigation, and sensor processing modules, despite their logical independence. To mitigate this tight coupling, the dedicated server architecture detailed in this chapter was developed.
+
+\subsection{Design Goals}
+\label{sec:ch8_goals}
+
+The architectural decisions presented in this chapter are guided by four primary objectives:
+
+\begin{itemize}
+    \item \textbf{Non-invasiveness} — The server must supplement rather than replace or duplicate the native orchestration logic of ROS. It functions as an observer and forwarder, without dictating autonomous robotic behavior.
+    \item \textbf{Modularity} — Novel capabilities (e.g., additional smart-home device protocols, new remote commands) must be integrated as self-contained modules to avoid structural modifications to unrelated components.
+    \item \textbf{Operability} — The system must demonstrate resilience and predictable recovery during operational failures, particularly connection disruptions with \texttt{rosbridge}, avoiding silent failures or the necessity for manual intervention.
+    \item \textbf{Developer Ergonomics} — To facilitate future maintainability and extensibility, the codebase prioritizes self-explanatory design patterns over excessive terseness, ensuring accessibility for subsequent developers.
+\end{itemize}
+
+\subsection{Architectural Analogy to SCADA Systems}
+\label{sec:ch8_scada}
+
+To provide a clear conceptual model for engineering professionals, the proposed server architecture can be functionally mapped to a Supervisory Control and Data Acquisition (SCADA) topology. While the implemented system does not adhere to stringent industrial determinism or standards, it adopts a structurally analogous multi-tiered approach to decouple real-time hardware control from user-facing interfaces.
+
+This functional similarity is primarily observed in the stratification of system responsibilities, as summarized in Table~\ref{tab:scada_mapping}.
+
+\begin{table}[H]
+    \centering
+    \caption{Functional mapping of the project architecture to standard SCADA layers.}
+    \begin{tabular}{|l|l|p{6cm}|}
+        \hline
+        \textbf{SCADA Layer} & \textbf{Project Component} & \textbf{Functional Responsibility} \\
+        \hline
+        Field / Control Layer & ROS (Robot Operating System) & Direct, real-time actuation and sensory data acquisition. \\
+        \hline
+        Supervisory Layer & Custom Node.js Server & Protocol translation, data aggregation, and routing between hardware and clients. \\
+        \hline
+        Presentation Layer (HMI) & Mobile App \& Telegram Client & High-level operator observation and command issuance, abstracted from underlying field protocols. \\
+        \hline
+    \end{tabular}
+
+    \label{tab:scada_mapping}
+\end{table}
+
+By conceptualizing the server as a supervisory translator, the architecture achieves a modular separation of concerns. This ensures that the presentation layer remains insulated from the complexities of the robotics middleware, facilitating independent scalability and maintenance across the communication stack.
+
+\section{Architectural Evolution}
+\label{sec:ch8_evolution}
+
+With the motivating context and design goals established in Section~\ref{sec:ch8_intro}, this section traces the iterative structural refinements that shaped the server's current form. Each transition is presented in chronological order and emerged as a direct resolution to a concrete operational challenge encountered during development.
+
+\subsection{First Iteration: Layered Architecture}
+\label{sec:ch8_layered}
+
+The initial server implementation adopted a conventional horizontal layered architecture. The codebase was segregated by technical function: a global \texttt{routes} directory for endpoint definitions, \texttt{controllers} for request handling, \texttt{services} for business logic, and \texttt{models} for data persistence. While theoretically separating concerns, this structure proved suboptimal as the feature set expanded.
+
+Developing or modifying a single feature, such as infrared (IR) remote control, necessitated navigating four distinct files across disparate directories (e.g., \texttt{ir.routes.js}, \texttt{ir.controller.js}, \texttt{ir.service.js}, \texttt{ir.model.js}). This fragmented organization imposed a high cognitive load, which escalated as additional features (smart home integration, telemetry endpoints, navigation) were introduced. The directory-based navigation paradigm effectively deteriorated, prompting a structural paradigm shift.
+
+\subsection{Second Iteration: Feature-Based Modular Architecture}
+\label{sec:ch8_feature_based}
+
+To address the limitations of the horizontal structure, the organizing principle was transitioned to a feature-centric modular architecture. The application was compartmentalized such that each feature (e.g., IR, Telegram, room management) resided in a self-contained directory containing its specific routes, controllers, Data Transfer Objects (DTOs), and business logic. Cross-cutting concerns, such as authentication middleware and global error handlers, were abstracted into a shared core layer.
+
+This reorganization significantly improved development efficiency. Feature encapsulation ensured that modifications were localized, and new functionalities could be modeled after existing modules without the overhead of distributing logic across technical layers. This architecture proved highly scalable for an expanding feature set.
+
+\subsection{The Controller Overcrowding Problem}
+\label{sec:ch8_overcrowding}
+
+Despite the improvements in module organization, individual controller functions progressively exhibited excessive responsibilities. Prior to subsequent refinements, a typical controller handled four distinct tasks:
+
+\begin{itemize}
+\item Manual validation of incoming request payloads to ensure structural and typological correctness.
+    \item Execution of core business logic.
+    \item Exception handling and categorization of errors into appropriate HTTP status codes.
+    \item Formatting and transmission of standard JSON responses.
+\end{itemize}
+
+This aggregation of concerns is a recognized anti-pattern in scalable service design. The manual replication of error-handling and response-formatting logic across controllers increased the probability of inconsistent API responses and systemic bugs, complicating the development of robust client-side error handling.
+
+\subsection{The Controller Wrapper Pattern}
+\label{sec:ch8_wrapper}
+
+To resolve the overcrowding identified in Section~\ref{sec:ch8_overcrowding}, error handling and response formatting were abstracted into a centralized wrapper function. Every controller is passed through this wrapper prior to its registration as an Express route handler.
+
+Under this paradigm, the controller's contract is strictly limited: it must return a valid output upon success or throw an exception upon failure. The controller contains no HTTP-specific constructs (e.g., status codes or response objects). The wrapper assumes full responsibility for HTTP semantics, catching exceptions, assigning appropriate status codes, standardizing error payloads, and enveloping successful responses. This separation of concerns structurally guarantees consistency across the entire API surface.
+
+\subsection{Global Error Handler}
+\label{sec:ch8_error_handler}
+
+Complementing the wrapper, the controller wrapper delegates caught exceptions to a global error handler middleware via the \texttt{next(err)} function. This architectural decision decouples error interception from error resolution, allowing the global middleware to handle logging, environment-specific stack trace obfuscation, and final response dispatching autonomously.
+
+\subsection{Input Validation with Zod}
+\label{sec:ch8_zod}
+
+The centralization strategy was subsequently applied to request validation. Manual validation logic within controllers was replaced by declarative schema validation using the Zod library. Each route is associated with a specific DTO schema. Incoming requests are evaluated against the corresponding DTO at the routing layer; malformed requests are intercepted and rejected prior to controller invocation.
+
+Consequently, controllers operate under the strict assumption of type-safe and structurally validated inputs. This elimination of defensive programming within business logic further purifies the controller's responsibility, ensuring it focuses exclusively on feature execution.
+
+\subsection{From Manual Router Wiring to Declarative Route Configuration}
+\label{sec:ch8_declarative}
+
+The final architectural refinement addressed the inefficiencies of imperative route wiring. Traditional configuration entails manually binding paths, middleware, and controllers (e.g., \texttt{router.get(...)}), which becomes cumbersome and error-prone as the API surface expands.
+
+This approach was superseded by a declarative route registry. Feature modules now export a structured route table comprising route descriptors. Each descriptor is a plain configuration object whose parameters define the route's identity, behavior, and middleware requirements. Figure~\ref{fig:route_config} illustrates the abstract structure of this descriptor and the configuration parameters available to each route entry.
+
+During initialization, a unified \texttt{attachRoutesAndMiddlewares} function iterates over these descriptor tables. It dynamically composes the middleware pipeline—applying DTO validation (Section~\ref{sec:ch8_zod}), authentication, and the controller wrapper (Section~\ref{sec:ch8_wrapper})—and binds the resulting chain to the Express application instance.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{"figures/ch06/sanad - Page 1 aggragator configurations(1).png"}
+    \caption{Abstract route descriptor object and its configuration parameters.}
+    \label{fig:route_config}
+\end{figure}
+
+This methodology yields three significant advantages:
+
+\begin{enumerate}
+    \item \textbf{Self-Documentation:} The route table acts as an accessible API manifest, enhancing code readability and maintainability.
+    \item \textbf{Structural Consistency:} Critical middlewares (validation, error wrapping) are systematically applied by the registry, eliminating the risk of developer omission.
+    \item \textbf{Flexibility:} A \texttt{customRouter} parameter permits the instantiation of conventional Express routers for edge cases that preclude declarative definition.
+\end{enumerate}
+
+As a concrete example, the IR module's declarative configuration resolves to the deterministic API surface shown in Table~\ref{tab:ir_routes}.
+
+\begin{table}[H]
+    \centering
+    \caption{Resolved IR module API surface.}
+    \begin{tabular}{|l|l|l|}
+        \hline
+        \textbf{Method} & \textbf{Path} & \textbf{Purpose} \\
+        \hline
+        GET & \texttt{/api/v1/ir/device} & Retrieve a specific registered IR device \\
+        \hline
+        GET & \texttt{/api/v1/ir/devices} & Retrieve the collection of all IR devices \\
+        \hline
+    \end{tabular}
+    \label{tab:ir_routes}
+\end{table}
+
+\subsection{Reflection on the Evolution}
+\label{sec:ch8_reflection}
+
+The successive architectural transitions share a unified objective: abstracting cross-cutting concerns from individual feature logic into centralized, deterministic mechanisms. The shift to feature-based modularity optimized navigation; the controller wrapper standardized response semantics; DTO validation ensured input integrity; and declarative routing systematized endpoint configuration. These enhancements collectively fortified the system's robustness without compromising its functional capabilities. The resulting architecture is presented in its finalized form in the following section.
+
+\section{System Architecture Overview}
+\label{sec:ch8_system_arch}
+
+Building upon the evolutionary refinements documented in Section~\ref{sec:ch8_evolution}, this section presents the finalized system architecture. Figure~\ref{fig:system_arch} provides a comprehensive view of the server's structural composition and the communication pathways between its principal components.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{"figures/ch06/sanad - Page 1 system arch.png"}
+    \caption{Comprehensive system architecture.}
+    \label{fig:system_arch}
+\end{figure}
+
+\subsection{Server Builder and the Dual-Server Model}
+\label{sec:ch8_dual_server}
+
+As depicted in Figure~\ref{fig:system_arch}, the high-level architecture is orchestrated by a central \texttt{server builder}, which instantiates two concurrent server processes within the same execution context: an \texttt{expressServer} for stateless RESTful interactions and a \texttt{wsServer} for persistent, bidirectional WebSocket communications.
+
+The Express server interfaces with the API aggregator (detailed in Section~\ref{sec:ch8_aggregator}), which serves as the unified entry point for HTTP-based modules (e.g., IR control, Telegram integration, telemetry). Conversely, the WebSocket server is architecturally isolated and explicitly designated for high-frequency robotic motion control commands.
+
+\subsection{Rationale for Server Separation}
+\label{sec:ch8_separation}
+
+The bifurcation of REST and WebSocket servers is predicated on the fundamentally disparate communication paradigms they serve. REST architectures utilize a request/response model suitable for discrete queries. In contrast, motion control necessitates a low-latency, continuous telemetry stream where the overhead of establishing successive HTTP connections is prohibitive. Providing dedicated transport channels for these distinct modalities ensures optimal network utilization and minimizes latency for real-time robotic actuation.
+
+\section{API Aggregator}
+\label{sec:ch8_aggregator}
+
+Having established the dual-server model in Section~\ref{sec:ch8_dual_server}, this section examines the internal composition of the Express server's central routing mechanism. Figure~\ref{fig:api_aggregator} illustrates the aggregator's layered pipeline.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{"figures/ch06/sanad - Page 1 API aggregator.png"}
+    \caption{Internal structure of the API Aggregator.}
+    \label{fig:api_aggregator}
+\end{figure}
+
+The API aggregator functions as the central conduit exposing the server's feature modules to external clients. It leverages the \texttt{routerRegistry} to systematically apply five distinct layers to incoming requests:
+
+\begin{itemize}
+    \item \textbf{Endpoints} — The configured route table defining the API schema (Section~\ref{sec:ch8_declarative}).
+    \item \textbf{Input Validation} — Zod DTO schemas for request sanitization (Section~\ref{sec:ch8_zod}).
+    \item \textbf{Authenticator} — JWT-based middleware for access control (Section~\ref{sec:ch8_auth}).
+    \item \textbf{Middlewares} — Route-specific interceptors (e.g., rate limiting).
+    \item \textbf{Controller Wrapper} — The centralized exception-handling and response-formatting layer (Section~\ref{sec:ch8_wrapper}).
+\end{itemize}
+
+\subsection{Authentication Strategy}
+\label{sec:ch8_auth}
+
+Authentication is governed by a stateless JSON Web Token (JWT) mechanism rather than stateful, session-backed architectures. This approach is highly compatible with heterogeneous client environments (e.g., mobile applications and remote Telegram instances), as the JWT encapsulates cryptographic proof of validity without necessitating continuous database lookups.
+
+
+\subsection{Controller Wrapper Internals}
+\label{sec:ch8_wrapper_internals}
+
+As introduced in Section~\ref{sec:ch8_wrapper}, the controller wrapper isolates two critical operational phases:
+
+\begin{itemize}
+    \item \textbf{Exception Interception}: Maps internal exceptions to standard HTTP status codes and uniform error payloads.
+    \item \textbf{Response Construction}: Standardizes the structural envelope (e.g., a standard \texttt{{ data: ... }} JSON object) for successful executions.
+\end{itemize}
+
+This decoupling ensures that error-handling logic remains completely agnostic to success-formatting requirements, thereby facilitating independent maintenance and reducing code fragility.
+
+\section{ROS Bridge Integration Layer}
+\label{sec:ch8_rosbridge}
+
+The preceding sections addressed the server's HTTP-facing architecture. This section shifts focus to the opposing interface: the connection between the server and the ROS infrastructure it mediates. All ROS-facing communication is channeled through a dedicated integration layer built on \texttt{rosbridge}.
+
+\subsection{The Shared Connection Model}
+\label{sec:ch8_shared_conn}
+
+Interactions with the underlying ROS infrastructure are multiplexed through a singular, shared \texttt{rosbridge} connection object, rather than permitting feature modules to instantiate independent sockets. Centralization is imperative for reliable fault tolerance. If individual modules maintained distinct connections, a localized network disruption could result in silent failures, wherein a module retains a reference to a defunct connection without triggering a systemic error cascade.
+
+\subsection{Reconnection Strategy}
+\label{sec:ch8_reconnect}
+
+To address potential connectivity loss, the integration layer monitors the \texttt{rosbridge} client for \texttt{reconnect} events. Upon connection restoration, the system deliberately eschews selective revalidation of existing communication pipelines. Instead, it executes a comprehensive teardown of all active subscribers, publishers, and service clients, subsequently re-instantiating them against the newly established connection object. This lifecycle is illustrated in Figure~\ref{fig:rosbridge}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{"figures/ch06/rosbridge image.png"}
+    \caption{ROS bridge WebSocket connection lifecycle.}
+    \label{fig:rosbridge}
+\end{figure}
+
+\subsection{Trade-offs of Comprehensive Rebuilding}
+\label{sec:ch8_rebuild_tradeoff}
+
+The decision to unconditionally rebuild the communication topology represents a deliberate engineering trade-off. While implementing differential patching—rebuilding only definitively broken instances—might yield marginal runtime efficiencies, it necessitates complex state-tracking mechanisms for every active pipeline. Inaccuracies in such tracking often manifest as silent operational failures in production.
+
+The comprehensive rebuild strategy guarantees deterministic recovery through a unified teardown-and-initialization sequence. The minor overhead incurred by re-instantiating functional objects is considered an acceptable compromise to ensure systemic reliability and mitigate extensive debugging costs associated with partial state corruption. This design directly addresses the operability goal established in Section~\ref{sec:ch8_goals}.
+
+\section{Feature Modules}
+\label{sec:ch8_features}
+
+The architectural foundations described in Sections~\ref{sec:ch8_evolution} through~\ref{sec:ch8_rosbridge} provide the shared infrastructure upon which individual feature modules are built. This section examines three representative modules—IR remote control, smart home integration, and Telegram client integration—each of which illustrates how the modular architecture accommodates distinct communication patterns and external device protocols.
+
+\subsection{IR Remote Control}
+\label{sec:ch8_ir}
+
+\subsubsection{Device Registration Protocol}
+\label{sec:ch8_ir_registration}
+
+The integration of new infrared (IR) remotes necessitates a robust registration protocol to mitigate hardware-induced signal noise. Figure~\ref{fig:ir_sequence} presents the sequence diagram for this process.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{"figures/ch06/sanad - Page 1 IR.png"}
+    \caption{IR device registration sequence diagram.}
+    \label{fig:ir_sequence}
+\end{figure}
+
+The mobile client initiates a registration session, which the server tracks contextually. Concurrently, the ROS infrastructure monitors physical button actuations, publishing detected hex codes to the \texttt{/ir/hexCode} topic. The server evaluates these emissions as \textit{candidate} keys, withholding database persistence to preclude the recording of corrupted signals.
+
+Subsequently, the client application retrieves the candidate key and issues an explicit confirmation request. Upon successful verification, the server invokes the ROS \texttt{/ir/fullDevice} service to finalize the profile. This two-phase commit protocol—capture followed by explicit confirmation—ensures that transient signal corruption does not compromise the integrity of the device's persistent key mapping.
+
+\subsection{Smart Home Integration}
+\label{sec:ch8_smarthome}
+
+While the IR module interfaces with ROS-connected hardware, the smart home subsystem extends the server's reach to network-connected peripherals operating independently of the robotics stack. This module addresses two distinct challenges: peripheral discovery and unified command dispatch.
+
+\subsubsection{Discovery Protocol}
+\label{sec:ch8_discovery}
+
+The integration of smart-home peripherals utilizes a dynamic, broadcast-based auto-discovery mechanism, obviating the need for static IP configuration. The discovery phase is depicted in Figure~\ref{fig:discovery_stage}, with the detailed broadcast and self-announcement flow shown in Figure~\ref{fig:discovery_flow}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{"figures/ch06/discovery stage.png"}
+    \caption{Smart home peripheral discovery phase.}
+    \label{fig:discovery_stage}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{"figures/ch06/sanad - Page 1 smart home discovery.png"}
+    \caption{Smart home broadcast and self-announcement flow.}
+    \label{fig:discovery_flow}
+\end{figure}
+
+The server periodically transmits discovery beacons across the local network. Compatible peripherals intercept these broadcasts and respond with their control typologies and unique identifiers, allowing the server to autonomously register them. This methodology mirrors established zero-configuration networking protocols (e.g., mDNS, SSDP) and is essential in robotics deployments where the environmental topology is highly variable, facilitating seamless hardware integration without manual supervisory intervention.
+
+\subsubsection{Unified Control Architecture}
+\label{sec:ch8_unified_control}
+
+A key architectural decision in this module is the normalization of actuation commands regardless of their origin. As illustrated in Figure~\ref{fig:control_path}, both human operators (via the mobile application) and autonomous processes (via ROS) interface with a unified server layer, which subsequently routes the command to the target peripheral.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{"figures/ch06/server-control.png"}
+    \caption{Unified control pathway for smart home devices.}
+    \label{fig:control_path}
+\end{figure}
+
+This centralization prevents the duplication of control logic. Without a unified interface, integration of a new peripheral would require parallel implementations for both manual and autonomous control pathways, increasing maintenance complexity. By converging these pathways at the server level, a peripheral requires only a single integration point to become accessible to both human operators and autonomous robotic routines.
+
+The underlying data model supporting this integration is depicted in Figure~\ref{fig:smarthome_schema}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{"figures/ch06/smart-home-db-schema.png"}
+    \caption{Entity-relationship schema for smart-home integration.}
+    \label{fig:smarthome_schema}
+\end{figure}
+
+\subsection{Telegram Client Integration}
+\label{sec:ch8_telegram}
+
+The final feature module examined in this chapter provides remote access to the robotic platform via the Telegram messaging service. Unlike the preceding modules, which communicate over local network protocols, the Telegram integration introduces challenges related to external session management and cross-channel authentication.
+
+\subsubsection{Connection and Session Lifecycle}
+\label{sec:ch8_telegram_session}
+
+Upon initialization of a Telegram interaction, the system evaluates the persistence of an existing, valid session for the corresponding user, as depicted in Figure~\ref{fig:telegram_session}. If no valid session is detected, a novel connection protocol is initiated. If a session is available, the workflow transitions directly to the authentication phase managed by the OTP manager (Section~\ref{sec:ch8_otp}).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{"figures/ch06/sanad - Page 1 telegram connection.png"}
+    \caption{Telegram connection and session orchestration flow.}
+    \label{fig:telegram_session}
+\end{figure}
+
+This session validation is critical for operational efficiency. Establishing a Telegram client connection from scratch is computationally and experientially expensive, often necessitating full OTP re-verification. Exploiting cached session states circumvents redundant authentication cycles, thereby significantly enhancing the user experience by maintaining uninterrupted connectivity.
+
+
+\subsubsection{OTP Manager and Asynchronous Resolution}
+\label{sec:ch8_otp}
+
+The OTP manager addresses a fundamental challenge in cross-channel authentication: synchronizing two events that occur on entirely independent communication pathways at unpredictable times. Its architecture, shown in Figure~\ref{fig:otp_manager}, employs a two-promise resolution pattern to bridge this temporal gap.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{"figures/ch06/sanad - Page 1 OTP manager.png"}
+    \caption{Two-promise resolution architecture of the OTP manager.}
+    \label{fig:otp_manager}
+\end{figure}
+
+Initiation of an authentication \texttt{Request} generates two corresponding entries: a \textbf{pending session} state and a \textbf{pending OTP} state. The requisite OTP is subsequently provided by the user via the Telegram interface—an asynchronous event received on an orthogonal system entry point. Upon validation of the provided OTP, the pending OTP entry is resolved, which sequentially triggers the resolution of the interdependent pending session.
+
+This architectural decoupling is imperative due to the asynchronous nature of the Telegram protocol. The originating authentication process cannot synchronously block while awaiting user input via the Telegram bot. The promise-resolution pattern bridges this temporal and spatial gap, enabling the originating request to resolve deterministically based on input received from an entirely distinct interaction pathway.
+
+\section{Summary and Transition}
+\label{sec:ch8_conclusion}
+This chapter has detailed the Node.js supervisory server, demonstrating how it securely handles client requests, aggregates diagnostics, and manages asynchronous peripherals. The next chapter, Chapter 7 (Touchscreen Interface), describes the development of the primary on-board kiosk UI that consumes these server APIs.

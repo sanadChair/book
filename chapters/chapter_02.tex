@@ -1,0 +1,92 @@
+\setcounter{chapter}{2}
+\chapter*{Chapter (2): Literature Review and \\ Market Analysis}
+\addcontentsline{toc}{chapter}{Chapter (2): Literature Review and Market Analysis}
+\setcounter{section}{0}
+
+\section{Chapter Preview}
+This chapter contextualizes the Sanad project within the existing landscape of assistive mobility technologies. It reviews alternative-input control and autonomous navigation academic research, details the comparative features and limitations of commercial products (such as WHILL, LUCI, and DROVE), and establishes Sanad's unique differentiators.
+
+\section{Existing Smart Wheelchair Research}
+
+Research on smart and autonomous wheelchairs has evolved along two largely separate tracks, which Sanad aims to merge.
+
+\textbf{Alternative-input control research.} Early and influential systems such as \textbf{VAHM} (Voice Activated Head Motion) combined speech recognition with head-movement sensing to give users with limited upper-limb mobility a way to drive a wheelchair without a joystick~\cite{benayed2026voicecontrolled}. This line of work established that non-joystick inputs are viable, but --- consistent with the analysis in Section~1.1 --- most of these systems remained manual/open-loop: the user directly drives the chair through the alternative input rather than specifying a destination for the robot to reach on its own.
+
+\textbf{Autonomous navigation research.} A parallel track, exemplified by systems such as \textbf{WAD} (Wheelchair Autonomous Driving), focused on ROS-based perception and mapping to enable real-time obstacle avoidance and autonomous driving, independent of the specific input modality used to issue commands~\cite{benayed2026voicecontrolled}. More recent work has pushed this further: the \textbf{CoNav Chair} (2025)~\cite{conavchair2025arxiv} introduces shared control built on ROS and 3D SLAM to balance user input with safety constraints, and Cui et al. (2024)~\cite{cui2024intelligent} combine multimodal interaction (voice, gestures, head posture) with LiDAR/SLAM-based autonomous navigation, reporting high positioning accuracy. A 2026 study by Benayed and Masmoudi~\cite{benayed2026voicecontrolled} presents a fully integrated voice-controlled smart wheelchair built on 2D LiDAR SLAM (GMapping) and AMCL localization within a ROS Navigation stack, reporting a mean localization error below 10~cm, a 94\% goal-completion rate, and an end-to-end voice-to-motion latency of 0.8~s, which is a useful reference point for Sanad's own navigation stack (also SLAM Toolbox/AMCL/Nav2-based).
+
+A broader literature survey on smart wheelchair systems highlights additional recurring themes relevant to Sanad: the use of biosignals and head-gesture sensing for motion control, the application of deep learning to control-signal interpretation, and --- notably --- persistent practical limitations such as restriction to indoor use and the need for user training before reliable operation~\cite{arxiv2023smartwheelchairreview}. These limitations mirror exactly the target environment Sanad is designed for (structured indoor spaces such as homes) and motivate Sanad's emphasis on a low-training-burden interface (natural-language voice, eye gaze) rather than a system requiring extensive calibration or practice.
+
+What is comparatively rare in the literature is the \textbf{combination} of (1) fully autonomous, map-based navigation, (2) genuinely accessibility-first multi-modal input that includes eye tracking for users with no reliable speech or limb control, and (3) integrated smart-home and remote-communication capabilities, all within a single platform. Most published systems optimize one of these axes in isolation. This combination is the primary contribution and differentiator of Sanad relative to the reviewed literature.
+
+\section{Commercial Products Comparison}
+
+Beyond generic joystick-driven wheelchairs, a small number of companies and research labs have shipped genuinely \emph{autonomous} wheelchair products. The most relevant ones the team benchmarked against are:
+
+\begin{itemize}
+    \item \textbf{WHILL} (incl. the WHILL/Panasonic ``WHILL NEXT'' collaboration): a commercially deployed autonomous wheelchair used mainly as an airport/venue mobility service (Miami International, LAX, Sea-Tac, Schiphol). It uses LiDAR and cameras for obstacle avoidance, and lets a rider select a destination on a touchscreen or summon the chair via a smartphone app; some versions support voice-stated destinations~\cite{whill2025product, whill2026autonomousservice, thedrive2019selfdriving, runwaygirl2024whill, fte2024schiphol}. Critically, WHILL's autonomy is \textbf{geofenced and route-based} (pre-mapped venue routes, predefined destinations) rather than general-purpose indoor SLAM, and it explicitly requires the rider to be able to get in and out of the chair and walk short distances unassisted --- i.e., it targets reduced-mobility travelers, not quadriplegic users~\cite{runwaygirl2024whill, djph2026autonomousdeployment}.
+    \item \textbf{LUCI}: a retrofit ``smart module'' that bolts onto an existing power wheelchair and adds collision/tip-over safety enforcement using stereo vision, radar, and ultrasonic sensors. LUCI deliberately focuses on \textbf{safety supervision of manual joystick driving} rather than destination-based autonomy --- it does not navigate the user to a goal on its own~\cite{sunrisemedical2022luci, djph2026autonomousdeployment}. It still requires the user to actively drive with a joystick, so it does not help quadriplegic or visually impaired users.
+    \item \textbf{DROVE}: a home-oriented autonomous module allowing selection of pre-defined destinations to traverse corridors/doorways with reduced manual joystick input, but --- like WHILL --- limited to a fixed set of pre-configured destinations rather than open-ended, freely described goals~\cite{djph2026autonomousdeployment}.
+\end{itemize}
+
+None of these commercial systems combine full indoor SLAM-based autonomy with a control interface that requires \emph{no} residual limb or visual capability (i.e., voice + eye tracking together), and none integrate smart-home control or independent caregiver communication. The two tables below make this comparison explicit: Table~\ref{table:grad_projects_comparison} compares Sanad against the prior graduation projects reviewed by the team, and Table~\ref{table:commercial_comparison} compares Sanad against the three commercial systems described above.
+
+\begin{table}[H]
+\centering
+\caption{Comparison between Sanad and prior graduation projects reviewed by the team.}
+\begin{tabular}{|p{4cm}|p{5.7cm}|p{5.7cm}|}
+\hline
+\textbf{Feature} & \textbf{Prior graduation projects} & \textbf{Sanad} \\
+\hline
+Control paradigm & Manual, open-loop (voice-as-driving, gaze-as-driving, or gesture-as-driving) & Autonomous, goal-directed (SLAM/Nav2 path planning) \\
+\hline
+Environment mapping & None; reacts only to raw user commands or basic obstacle sensors & Builds/maintains a live SLAM map of any indoor environment \\
+\hline
+Destination specification & Step-by-step low-level motion commands (distance, direction, angle), re-issued repeatedly & Free-form natural-language goal (``go to the kitchen'', VLM-located objects) \\
+\hline
+Usable by quadriplegic users (no limb control) & Largely unsupported; most alternative-input systems still assume some residual physical control & Yes --- voice, eye tracking, IMU head-tilt \\
+\hline
+Usable by visually impaired users & Not addressed & Yes --- voice-driven autonomous navigation removes the need to see the environment \\
+\hline
+Smart-home control & Not included & Integrated (IR blasters, connected devices) \\
+\hline
+Remote communication (e.g., messaging caregivers) & Not included & Integrated (autonomous Telegram messaging) \\
+\hline
+Deployment stage & Prototype only, not commercialized & Prototype, target: low-cost, locally buildable \\
+\hline
+\end{tabular}
+\label{table:grad_projects_comparison}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Comparison between Sanad and commercial autonomous/semi-autonomous wheelchair products (WHILL, LUCI, DROVE).}
+\begin{tabular}{|p{2.9cm}|p{2.9cm}|p{2.9cm}|p{2.9cm}|p{2.9cm}|}
+\hline
+\textbf{Feature} & \textbf{WHILL} & \textbf{LUCI} & \textbf{DROVE} & \textbf{Sanad} \\
+\hline
+Control paradigm & Route/geofenced autonomy on pre-mapped venue paths & Manual joystick driving with AI safety supervision only & Route autonomy over a fixed set of pre-defined home destinations & Autonomous, goal-directed (SLAM/Nav2 path planning) \\
+\hline
+Environment mapping & Pre-mapped fixed venue routes, no live SLAM & None; live sensor fusion (stereo vision, radar, ultrasonic) for collision avoidance only & Pre-configured fixed destinations, no general SLAM & Builds/maintains a live SLAM map of any indoor environment \\
+\hline
+Destination specification & Touchscreen/app selection from a fixed destination list; some voice-stated destinations & N/A --- user drives manually via joystick & Selection from a fixed, pre-defined destination list & Free-form natural-language goal, incl.\ VLM-located objects \\
+\hline
+Usable by quadriplegic users (no limb control) & No --- requires touchscreen/app use and unassisted transfer in/out of the chair & No --- requires active joystick driving & No --- requires touchscreen/app selection & Yes --- voice, eye tracking, IMU head-tilt \\
+\hline
+Usable by visually impaired users & Not addressed; touchscreen-centric interaction & Not addressed & Not addressed; touchscreen-centric interaction & Yes --- voice-driven autonomous navigation \\
+\hline
+Deployment context & Public venues (airports) as a shared fleet service & Retrofit module for an existing personal power wheelchair & Personal, home/indoor use & Personal, home/indoor use \\
+\hline
+Smart-home control & Not included & Not included & Not included & Integrated (IR blasters, connected devices) \\
+\hline
+Remote communication & Not included & Not included & Not included & Integrated (autonomous Telegram messaging) \\
+\hline
+Cost/availability & Commercial, \$4,000+ per unit~\cite{harvard2020whillcase} or B2B fleet service, not sold for personal home use & Commercial retrofit add-on for existing power wheelchairs & Not broadly commercially available (research/early product stage) & Student graduation-project platform (target: low-cost, locally buildable) \\
+\hline
+\end{tabular}
+\label{table:commercial_comparison}
+\end{table}
+
+\section{Summary and Transition}
+This chapter has benchmarked Sanad against existing academic literature and commercial smart wheelchairs, highlighting the gap in unified, accessible, and autonomous systems. The next chapter, Chapter 3 (System Architecture), details the high-level physical and logical design that addresses these gaps.
+
+

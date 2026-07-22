@@ -1,0 +1,170 @@
+\documentclass[12pt]{report}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{placeins}
+\usepackage{caption}
+\captionsetup{justification=centering}
+\usepackage{wrapfig}
+\geometry{a4paper, margin=1in}
+\usepackage{hyperref}
+\usepackage{amsmath, amssymb}
+\usepackage{newunicodechar}
+\usepackage[T1]{fontenc}
+\usepackage{listings}
+\usepackage{tabularx}
+\usepackage{fontspec}
+\usepackage{kantlipsum} % Added for Kant dummy text
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage[raggedrightboxes]{ragged2e}
+\usepackage{multirow}
+\usepackage{subcaption}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{url} 
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage{xurl}
+\usepackage{etoolbox}
+\apptocmd{\thebibliography}{\raggedright}{}{}
+
+\setmainfont{Times New Roman}
+\renewcommand{\bibname}{References}
+
+% ----------- TikZ Setup -----------
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, calc, shadows, backgrounds}
+\usetikzlibrary{shapes.geometric,arrows.meta,positioning,calc}
+\usetikzlibrary{positioning, calc, shapes.geometric, arrows.meta}
+\usepackage{xcolor}
+\usepackage{listings}
+
+\lstdefinelanguage{yaml}{
+    keywords={true,false,null,y,n},
+    keywordstyle=\color{blue}\bfseries,
+    basicstyle=\ttfamily\small,
+    sensitive=false,
+    comment=[l]{\#},
+    commentstyle=\color{green!50!black}\itshape,
+    moredelim=[l][\color{red}]{&},
+    moredelim=[l][\color{magenta}]{*},
+    morestring=[b]",
+    morestring=[b]',
+    stringstyle=\color{orange!80!black},
+}
+
+\lstset{
+    language=yaml,
+    frame=single,
+    rulecolor=\color{gray!40},
+    backgroundcolor=\color{gray!5},
+    breaklines=true,
+    showstringspaces=false,
+    columns=fullflexible,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    xleftmargin=5mm,
+    framexleftmargin=5mm
+}
+
+% ----------- Fancy Header Setup -----------
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\chaptermark}[1]{\markboth{\thechapter\ #1}{}}
+\fancyhead[L]{\leftmark}
+\fancyhead[R]{Sanad}
+\fancyfoot[C]{\thepage}
+
+% Redefine \chapter to make starred chapters update the header mark
+\makeatletter
+\let\oldchapter\chapter
+\renewcommand{\chapter}{\@ifstar{\starredchapter}{\oldchapter}}
+\newcommand{\starredchapter}[1]{%
+  \oldchapter*{#1}%
+  \markboth{#1}{}%
+}
+
+% Increase width for figure and table numbers in List of Figures/Tables
+\renewcommand*\l@figure{\@dottedtocline{1}{1.5em}{3.8em}}
+\renewcommand*\l@table{\@dottedtocline{1}{1.5em}{3.8em}}
+\makeatother
+
+
+% ----------- Chapter Formatting -----------
+\titleformat{\chapter}[display]
+  {\normalfont\bfseries\Huge}
+  {\chaptertitlename\ \thechapter}{20pt}{\Huge}
+
+% ----------- Chapter Separator Page -----------
+\newcommand{\chapterseparator}[1]{%
+  \clearpage
+  \thispagestyle{empty}
+  \vspace*{\fill}
+  \begin{center}
+    {\bfseries\fontsize{40}{48}\selectfont #1}
+  \end{center}
+  \vspace*{\fill}
+  \clearpage
+}
+
+\begin{document}
+
+\include{frontmatter/titlepage}
+
+\tableofcontents
+\newpage
+\listoffigures
+\newpage
+
+\include{frontmatter/acknowledgment}
+\include{frontmatter/abstract}
+
+\chapterseparator{Chapter 1}
+\include{chapters/chapter_01}
+
+\chapterseparator{Chapter 2}
+\include{chapters/chapter_02}
+
+\chapterseparator{Chapter 3}
+\include{chapters/chapter_03}
+
+\chapterseparator{Chapter 4}
+\include{chapters/chapter_04}
+
+\chapterseparator{Chapter 5}
+\include{chapters/chapter_05}
+
+\chapterseparator{Chapter 6}
+\include{chapters/chapter_06}
+
+\chapterseparator{Chapter 7}
+\include{chapters/chapter_07}
+
+\chapterseparator{Chapter 8}
+\include{chapters/chapter_08}
+
+\chapterseparator{Chapter 9}
+\include{chapters/chapter_09}
+
+\chapterseparator{Chapter 10}
+\include{chapters/chapter_10}
+
+\chapterseparator{Chapter 11}
+\include{chapters/chapter_11}
+
+\chapterseparator{Appendix}
+\include{chapters/appendix}
+
+\nocite{*}
+% \vspace*{-1.5cm}
+\bibliographystyle{plain}
+\bibliography{references}
+\newpage
+
+
+\end{document}

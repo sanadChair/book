@@ -1,0 +1,23 @@
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+Wheelchairs are widely utilized worldwide to support individuals with physical disabilities, serving as a primary means of mobility and personal independence. However, conventional powered wheelchairs typically rely on manual interfaces like joysticks, which implicitly assume that the operator retains sufficient upper-limb motor function. This design barrier excludes individuals with severe physical disabilities, such as complete quadriplegia, advanced amyotrophic lateral sclerosis (ALS), or severe cerebral palsy, making them entirely dependent on personal caregivers for basic indoor mobility. Prior research and graduation prototypes attempting to address this issue often utilize open-loop control schemes (e.g., manual voice-steering or simple obstacle-stop sensors), forcing the user to act as a human path planner. This approach is cognitively exhausting, imprecise, and unsafe in dynamic domestic environments.
+
+This project presents \textbf{Sanad}, a holistic, closed-loop autonomous wheelchair platform developed on the Robot Operating System 2 (ROS 2) framework. Sanad transforms the wheelchair into an intelligent mobile robot that builds a persistent map of the home environment using laser-based Simultaneous Localization and Mapping (SLAM Toolbox) and localizes itself in real-time using Adaptive Monte Carlo Localization (AMCL). When the user specifies a high-level destination, the Navigation 2 (Nav2) stack autonomously generates global and local trajectories, avoiding static and dynamic obstacles using fused data from a 360-degree dual-LiDAR setup and a depth camera.
+
+To ensure broad accessibility, Sanad features a multi-modal interaction layer:
+\begin{itemize}[itemsep=0pt, parsep=0pt, topsep=0pt]
+    \item A conversational voice control pipeline processing Egyptian Arabic speech via a wake-word detector, OpenAI Whisper (Speech-to-Text), and a Large Language Model (Google Gemini) for natural-language intent parsing.
+    \item A touchscreen graphical interface displaying a live map for users who retain partial mobility.
+    \item An integrated eye-tracking interface mapping pupil movement to screen coordinates for locked-in or non-verbal users.
+    \item A wearable head-motion IMU controller for fine steering inside rooms.
+\end{itemize}
+
+Furthermore, Sanad extends user independence beyond physical mobility by incorporating:
+\begin{itemize}[itemsep=0pt, parsep=0pt, topsep=0pt]
+    \item A smart home actuator layer allowing control over household appliances (lights, televisions, and climate control) via local network protocols and infrared (IR) blasters.
+    \item A Telegram communication bot enabling the user to listen to and send messages hands-free.
+    \item A caregiver mobile application connected to a centralized backend server, streaming real-time biometric vitals and system telemetry.
+\end{itemize}
+
+Experimental evaluation confirms that Sanad provides robust, centimeter-level indoor positioning, reliable obstacle avoidance, and smooth goal-directed navigation, establishing a comprehensive cyber-physical platform that significantly increases user autonomy and reduces caregiver burden.
